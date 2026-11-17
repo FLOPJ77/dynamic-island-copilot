@@ -1,0 +1,623 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --spring-curve: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Eradicate all white focus outlines, rings, and tap highlights across all elements */
+*, *::before, *::after {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  box-sizing: border-box;
+}
+
+*:focus, *:focus-visible, *:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+button:focus, button:focus-visible,
+input:focus, input:focus-visible,
+textarea:focus, textarea:focus-visible,
+select:focus, select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html, body {
+  background: transparent !important;
+  background-color: transparent !important;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Core Island Physics - Fluid Spring Capsule Morphing (Option B) */
+.island-shell {
+  transform-origin: top center;
+  box-sizing: border-box;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+#dynamic-island {
+  position: relative;
+  width: 96px;
+  height: 32px;
+  margin: 0 auto;
+  background-color: #0a0a0a !important;
+  color: #f4f4f5;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  display: block;
+  box-sizing: border-box;
+  transform-origin: top center;
+  transform: translate3d(0, 0, 0);
+  will-change: width, height, border-radius;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  transition: width 0.30s var(--spring-curve),
+              height 0.30s var(--spring-curve),
+              border-radius 0.30s var(--spring-curve),
+              border-color 0.18s ease,
+              background-color 0.18s ease;
+}
+
+.island-collapsing {
+  transition: width 0.25s var(--spring-curve),
+              height 0.25s var(--spring-curve),
+              border-radius 0.25s var(--spring-curve),
+              border-color 0.18s ease,
+              background-color 0.18s ease !important;
+}
+
+/* Layered Stage Architecture (Zero inner layout thrashing during morph) */
+.stage-idle-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  max-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: opacity, transform;
+  transform-origin: center center;
+}
+
+.stage-idle-layer.stage-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: scale3d(1, 1, 1);
+  transition: opacity 0.16s var(--ease-out-smooth) 0.04s,
+              transform 0.24s var(--spring-curve) 0.02s,
+              visibility 0s linear 0s;
+}
+
+.stage-idle-layer.stage-inactive {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale3d(0.92, 0.92, 1);
+  transition: opacity 0.10s ease-out,
+              transform 0.18s var(--spring-curve),
+              visibility 0s linear 0.10s;
+}
+
+.stage-peek-layer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 318px;
+  height: 34px;
+  display: flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  will-change: opacity, transform;
+  transform-origin: center center;
+}
+
+.stage-peek-layer.stage-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(-50%, 0, 0) scale3d(1, 1, 1);
+  transition: opacity 0.18s var(--ease-out-smooth) 0.04s,
+              transform 0.26s var(--spring-curve),
+              visibility 0s linear 0s;
+}
+
+.stage-peek-layer.stage-inactive {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(-50%, 0, 0) scale3d(0.94, 0.94, 1);
+  transition: opacity 0.11s ease-out,
+              transform 0.20s var(--spring-curve),
+              visibility 0s linear 0.11s;
+}
+
+.stage-expanded-layer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 598px;
+  height: 418px;
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  overflow: hidden;
+  will-change: opacity, transform;
+  transform-origin: top center;
+}
+
+.stage-expanded-layer.stage-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(-50%, 0, 0) scale3d(1, 1, 1);
+  transition: opacity 0.20s var(--ease-out-smooth) 0.05s,
+              transform 0.30s var(--spring-curve),
+              visibility 0s linear 0s;
+}
+
+.stage-expanded-layer.stage-inactive {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(-50%, -4px, 0) scale3d(0.95, 0.95, 1);
+  transition: opacity 0.12s ease-out,
+              transform 0.22s var(--spring-curve),
+              visibility 0s linear 0.12s;
+}
+
+.stage-overlay-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  will-change: opacity, transform;
+}
+
+.stage-overlay-layer.stage-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: scale3d(1, 1, 1);
+  transition: opacity 0.18s var(--ease-out-smooth) 0.04s,
+              transform 0.24s var(--spring-curve),
+              visibility 0s linear 0s;
+}
+
+.stage-overlay-layer.stage-inactive {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale3d(0.96, 0.96, 1);
+  transition: opacity 0.12s ease-out,
+              transform 0.18s var(--spring-curve),
+              visibility 0s linear 0.12s;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Pure transparent corners: NO box-shadow to avoid rectangular window edge artifacts */
+.island-glow {
+  box-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+.island-drag-glow {
+  box-shadow: none !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
+  animation: dragPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes dragPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+
+/* AI Completion Notification Pulse & Bounce */
+@keyframes islandNotifyPulse {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.018) translateY(1px); }
+  50% { transform: scale(0.99) translateY(-1px); }
+  75% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+
+.island-notify-pulse {
+  animation: islandNotifyPulse 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+}
+
+/* Fluid Entrance Animations (Pure GPU accelerated transforms) */
+.stage-fluid-enter {
+  will-change: transform, opacity;
+  animation: stageEnter 0.18s var(--spring-curve) forwards;
+}
+
+@keyframes stageEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -3px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.peek-fluid-enter {
+  will-change: transform, opacity;
+  animation: peekEnter 0.14s var(--spring-curve) forwards;
+}
+
+@keyframes peekEnter {
+  0% {
+    opacity: 0.85;
+    transform: scale3d(0.97, 0.97, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+.idle-fluid-enter {
+  will-change: transform, opacity;
+  animation: idleEnter 0.13s var(--spring-curve) forwards;
+}
+
+@keyframes idleEnter {
+  0% {
+    opacity: 0.85;
+    transform: scale3d(0.96, 0.96, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+.tab-content-enter {
+  animation: tabFadeIn 0.16s var(--ease-out-smooth) forwards;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Concentric Corner Radii */
+.radius-island { border-radius: 24px; }
+.radius-card { border-radius: 14px; }
+.radius-btn { border-radius: 9px; }
+
+/* Interactive Element Transitions (Avoid transitioning layout properties like width/height) */
+button, input, select, textarea {
+  transition: background-color 0.16s var(--ease-out-smooth),
+              border-color 0.16s var(--ease-out-smooth),
+              color 0.16s var(--ease-out-smooth),
+              opacity 0.16s var(--ease-out-smooth),
+              transform 0.16s var(--ease-out-smooth);
+}
+
+/* Completely eradicate any native scrollbar buttons / arrows */
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.island-shell::-webkit-scrollbar,
+#dynamic-island::-webkit-scrollbar,
+#stage-idle::-webkit-scrollbar,
+#stage-peek::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+}
+
+/* Custom monochrome scrollbar for inner scrollable content areas */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Rich Markdown Rendering in AI Chat */
+.ai-markdown-body {
+  line-height: 1.55;
+  color: #e4e4e7;
+  font-size: 11.5px;
+  word-break: break-word;
+}
+
+.ai-markdown-body h1 {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 2px;
+}
+
+.ai-markdown-body h2 {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-top: 8px;
+  margin-bottom: 3px;
+}
+
+.ai-markdown-body h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.ai-markdown-body h4 {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin-top: 5px;
+  margin-bottom: 2px;
+}
+
+.ai-markdown-body h5, .ai-markdown-body h6 {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d4d4d8;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.ai-markdown-body p {
+  margin-bottom: 6px;
+}
+
+.ai-markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown-body strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.ai-markdown-body em {
+  font-style: italic;
+  color: #d4d4d8;
+}
+
+.ai-markdown-body ul {
+  list-style-type: disc;
+  padding-left: 16px;
+  margin: 4px 0;
+}
+
+.ai-markdown-body ol {
+  list-style-type: decimal;
+  padding-left: 16px;
+  margin: 4px 0;
+}
+
+.ai-markdown-body li {
+  margin-bottom: 2px;
+}
+
+.ai-markdown-body blockquote {
+  border-left: 2px solid rgba(255, 255, 255, 0.25);
+  padding-left: 8px;
+  color: #a1a1aa;
+  font-style: italic;
+  margin: 6px 0;
+}
+
+.ai-markdown-body a {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ai-markdown-body hr {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
+}
+
+/* Fenced Code Block styling */
+.ai-code-card {
+  background-color: #050505;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+
+.ai-code-header {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-family: monospace;
+  color: #a1a1aa;
+}
+
+.ai-code-copy-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #a1a1aa;
+  padding: 1px 6px;
+  font-size: 9.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ai-code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.ai-code-content {
+  padding: 8px 10px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #34d399;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.ai-inline-code {
+  background: rgba(255, 255, 255, 0.08);
+  color: #34d399;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ========================================================
+   iPhone Dynamic Island & S25 Ultra Live Equalizer Waveform (Monochrome)
+   ======================================================== */
+.eq-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 14px;
+}
+
+.eq-bar {
+  width: 2.5px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
+  transition: height 0.2s ease;
+}
+
+.eq-bar-sm {
+  width: 2px;
+  height: 2.5px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
+}
+
+.eq-playing .eq-bar:nth-child(1),
+.eq-playing .eq-bar-sm:nth-child(1) {
+  animation: eqBounce1 0.75s ease-in-out infinite;
+}
+.eq-playing .eq-bar:nth-child(2),
+.eq-playing .eq-bar-sm:nth-child(2) {
+  animation: eqBounce2 0.55s ease-in-out infinite 0.12s;
+}
+.eq-playing .eq-bar:nth-child(3),
+.eq-playing .eq-bar-sm:nth-child(3) {
+  animation: eqBounce3 0.68s ease-in-out infinite 0.24s;
+}
+.eq-playing .eq-bar:nth-child(4),
+.eq-playing .eq-bar-sm:nth-child(4) {
+  animation: eqBounce1 0.62s ease-in-out infinite 0.08s;
+}
+
+@keyframes eqBounce1 {
+  0%, 100% { height: 3px; }
+  50% { height: 12px; }
+}
+@keyframes eqBounce2 {
+  0%, 100% { height: 4px; }
+  45% { height: 14px; }
+  80% { height: 6px; }
+}
+@keyframes eqBounce3 {
+  0%, 100% { height: 3px; }
+  35% { height: 9px; }
+  70% { height: 13px; }
+}
+
+/* Monochrome range sliders & checkboxes */
+.yt-monochrome-slider,
+.mono-checkbox {
+  accent-color: #ffffff;
+}
+
+.yt-monochrome-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.yt-monochrome-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+/* Offscreen keeper so WebView2 never throttles or unloads YouTube audio when island is collapsed */
+.yt-offscreen-keepalive {
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 200px !important;
+  height: 112px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}

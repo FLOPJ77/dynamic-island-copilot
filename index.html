@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Island Copilot</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body class="relative h-screen w-screen overflow-hidden bg-transparent text-zinc-100 flex flex-col justify-start selection:bg-white selection:text-black">
+
+  <!-- THE DYNAMIC ISLAND (Frameless, transparent host container) -->
+  <div class="w-full h-full flex justify-center items-start">
+    <div id="dynamic-island"
+         onmouseenter="handleIslandMouseEnter()"
+         onmouseleave="handleIslandMouseLeave()"
+         onclick="handleIslandClick(event)"
+         ondragover="handleIslandDragOver(event)"
+         ondragleave="handleIslandDragLeave(event)"
+         ondrop="handleIslandDrop(event)"
+         class="island-shell relative z-50 bg-[#0a0a0a] text-zinc-100 border border-white/10 island-glow overflow-hidden cursor-pointer select-none"
+         style="width: 96px; height: 32px; border-radius: 9999px; margin: 0 auto;">
+
+      <!-- Persistent YouTube IFrame Host (Never reparented or display:none so audio never drops; pointer-events-none prevents unscaled YouTube hover overlays) -->
+      <div id="yt-player-host" class="yt-offscreen-keepalive rounded-lg overflow-hidden bg-black border border-white/10 pointer-events-none select-none transition-opacity duration-150">
+        <iframe id="yt-player-iframe"
+                class="w-full h-full border-0 pointer-events-none select-none"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 1. STAGE 1: IDLE VIEW (Minimal Pill OR S25/iPhone Music Pill) -->
+      <!-- ================================================== -->
+      <div id="stage-idle" class="stage-idle-layer stage-active">
+        <!-- Default Idle Logo (Shown when no music is active) -->
+        <div id="idle-default-view" class="flex items-center justify-center w-full h-full">
+          <svg class="w-3.5 h-3.5 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+          </svg>
+        </div>
+
+        <!-- S25 Ultra / iPhone Dynamic Island Compact Music View (Shown when music is active) -->
+        <div id="idle-music-view" class="hidden w-full h-full px-2.5 flex items-center justify-between space-x-2">
+          <div class="flex items-center space-x-2 min-w-0 flex-1">
+            <img id="idle-music-thumb" src="" alt=""
+                 class="w-5 h-5 rounded-full object-cover border border-white/25 shrink-0 bg-zinc-800" />
+            <span id="idle-music-title" class="text-[11px] font-medium text-zinc-100 truncate">Playing...</span>
+          </div>
+          <div id="idle-music-eq" class="eq-container eq-playing shrink-0 pr-0.5">
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+          </div>
+        </div>
+
+        <!-- Mini Notification LED Dot (Glows when AI task finishes) -->
+        <span id="idle-notify-led" class="hidden absolute right-2.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse"></span>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 2. STAGE 2: HOVER PEEK (Top-Nav Bar with SVGs & Mini Media Controls) -->
+      <!-- ================================================== -->
+      <div id="stage-peek" class="stage-peek-layer stage-inactive">
+        <!-- Left: Logo Glyph OR Mini Now-Playing Controls -->
+        <div id="peek-default-left" class="flex items-center text-zinc-400 pl-1">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+          </svg>
+        </div>
+
+        <div id="peek-music-left" class="hidden flex items-center space-x-1.5 min-w-0 max-w-[155px] pl-0.5">
+          <img id="peek-music-thumb" src="" alt=""
+               onclick="openTabDirect('music', event)"
+               class="w-5 h-5 rounded-full object-cover border border-white/25 shrink-0 cursor-pointer bg-zinc-800" />
+          <span id="peek-music-title"
+                onclick="openTabDirect('music', event)"
+                class="text-[10px] font-medium text-zinc-200 hover:text-white truncate cursor-pointer max-w-[78px]">Playing</span>
+          <button onclick="toggleMusicPlayback(event)"
+                  id="peek-play-pause-btn"
+                  class="p-1 radius-btn bg-white/10 hover:bg-white/20 text-white transition shrink-0">
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
+            </svg>
+          </button>
+          <button onclick="stopMusicPlayback(event)"
+                  class="p-0.5 radius-btn text-zinc-500 hover:text-white transition shrink-0">
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Middle/Right Action Icons (No browser tooltips, dynamically ordered via Settings) -->
+        <div id="peek-tools-bar" class="flex items-center space-x-1 shrink-0">
+          <!-- AI Chat Icon with optional LED indicator -->
+          <button id="peek-btn-ai" onclick="openTabDirect('ai', event)"
+                  class="relative p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+            </svg>
+            <span id="peek-notify-led" class="hidden absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse"></span>
+          </button>
+
+          <!-- YouTube / Music Icon (Monochrome) -->
+          <button id="peek-btn-music" onclick="openTabDirect('music', event)"
+                  class="relative p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+            <span id="peek-music-led" class="hidden absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.85)] animate-pulse"></span>
+          </button>
+
+          <!-- Search (Lens) Icon -->
+          <button id="peek-btn-search" onclick="openTabDirect('search', event)"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
+
+          <!-- Notes & Quick + New Note Group -->
+          <div id="peek-btn-notes" class="flex items-center space-x-1">
+            <button onclick="openTabDirect('notes', event)"
+                    class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </button>
+
+            <button onclick="createNewNoteDirect(event)"
+                    class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- WhatsApp Icon -->
+          <button id="peek-btn-whatsapp" onclick="openTabDirect('whatsapp', event)"
+                  class="relative p-1 radius-btn text-zinc-400 hover:text-emerald-400 hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+            <span id="peek-whatsapp-led" class="hidden absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]"></span>
+          </button>
+
+          <!-- Three Dots Settings (Always visible at end) -->
+          <button id="peek-btn-settings" onclick="openTabDirect('settings', event)"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="19" cy="12" r="1" />
+              <circle cx="5" cy="12" r="1" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 3. STAGE 3: EXPANDED MODAL (AI, YouTube, Search, Notes, WhatsApp, Settings) -->
+      <!-- ================================================== -->
+      <div id="stage-expanded" class="stage-expanded-layer stage-inactive cursor-default">
+        
+        <!-- Header: Fixed height, never shifts tabs -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-2 mb-2.5 shrink-0">
+          <!-- Tab Navigation (Dynamically ordered & toggled via Settings) -->
+          <div id="expanded-tabs-bar" class="flex items-center space-x-1 bg-white/5 p-1 radius-card border border-white/5">
+            <!-- AI Tab -->
+            <button id="tab-btn-ai" onclick="switchTab('ai', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 bg-white/10 text-white">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+              </svg>
+              <span>AI</span>
+              <span id="tab-notify-led" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse"></span>
+            </button>
+
+            <!-- YouTube / Music Tab (Monochrome) -->
+            <button id="tab-btn-music" onclick="switchTab('music', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+              <span>YouTube</span>
+              <span id="tab-music-led" class="hidden w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.85)] animate-pulse"></span>
+            </button>
+
+            <!-- Search Tab -->
+            <button id="tab-btn-search" onclick="switchTab('search', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span>Search</span>
+            </button>
+
+            <!-- Notes Tab -->
+            <button id="tab-btn-notes" onclick="switchTab('notes', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span>Notes</span>
+            </button>
+
+            <!-- WhatsApp Tab -->
+            <button id="tab-btn-whatsapp" onclick="switchTab('whatsapp', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+              <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+              <span>WhatsApp</span>
+              <span id="tab-whatsapp-led" class="hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]"></span>
+            </button>
+          </div>
+
+          <!-- Header Right Icons -->
+          <div class="flex items-center space-x-1">
+            <button id="tab-btn-settings" onclick="switchTab('settings', event)"
+                    class="p-1.5 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="19" cy="12" r="1" />
+                <circle cx="5" cy="12" r="1" />
+              </svg>
+            </button>
+            <button onclick="collapseIsland(event)"
+                    class="p-1.5 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 1: AI COPILOT -->
+        <!-- ============================================== -->
+        <div id="tab-content-ai" class="flex-1 flex flex-col space-y-2 overflow-hidden min-h-0">
+          <!-- Active model badge & New Chat button -->
+          <div class="flex items-center justify-between text-[11px] text-zinc-400 px-1 shrink-0">
+            <div class="flex items-center space-x-1.5">
+              <button onclick="startNewChat(event)"
+                      title="New chat"
+                      class="p-1 radius-btn bg-white/5 border border-white/15 hover:border-white/30 hover:bg-white/10 text-zinc-400 hover:text-white transition flex items-center justify-center">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+              <span id="active-model-display">Local Ollama • llama3.2</span>
+            </div>
+            <button onclick="switchTab('settings', event)" class="text-zinc-400 hover:text-zinc-200 text-[10px] transition">
+              Configure model / key
+            </button>
+          </div>
+
+          <!-- Chat conversation box: fills remaining height, never pushes tabs -->
+          <div id="chat-stream-box" class="flex-1 bg-zinc-950 border border-white/5 radius-card p-3 overflow-y-auto space-y-2.5 min-h-0">
+            <div class="flex items-start space-x-2 text-xs">
+              <div class="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+              </div>
+              <div class="flex-1 text-zinc-300 leading-relaxed bg-white/5 p-2 radius-card border border-white/5">
+                Ready for quick questions, translations, or code checks.
+              </div>
+            </div>
+          </div>
+
+          <!-- Prompt Input with Arrow SVG Button -->
+          <form onsubmit="handleSendPrompt(event)" autocomplete="off" class="relative flex items-center shrink-0">
+            <input type="text" id="ai-prompt-input"
+                   placeholder="Ask local AI or type prompt..."
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   class="w-full bg-zinc-900 border border-white/10 focus:border-white/30 radius-card px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none transition pr-11" />
+            <button type="submit"
+                    class="absolute right-1.5 p-1.5 radius-btn bg-white/10 hover:bg-white/20 text-zinc-200 transition flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 1.5: YOUTUBE & MUSIC PLAYER (Monochrome S25 / iPhone Island Style) -->
+        <!-- ============================================== -->
+        <div id="tab-content-music" class="hidden flex-1 flex flex-col space-y-2 overflow-hidden min-h-0">
+          <!-- Search / URL Bar -->
+          <form onsubmit="handleYouTubeSearchSubmit(event)" class="relative flex items-center shrink-0">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+            <input type="text" id="yt-search-input" oninput="handleYouTubeSearchInput(this.value)"
+                   placeholder="Search YouTube songs, artists, or paste a YouTube link..."
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   class="w-full bg-zinc-900 border border-white/10 focus:border-white/30 radius-card pl-9 pr-24 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none transition" />
+
+            <!-- Clear 'X' Button -->
+            <button type="button" id="yt-search-clear-btn" onclick="clearYouTubeSearch(event)"
+                    class="hidden absolute right-16 p-1 text-zinc-400 hover:text-white transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <!-- Personalize Genres / Vibes Button -->
+            <button type="button" onclick="toggleYouTubeGenreCustomizer(event)"
+                    id="yt-genre-gear-btn"
+                    title="Customize personal genres & tags"
+                    class="absolute right-8 p-1.5 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="21" x2="4" y2="14" />
+                <line x1="4" y1="10" x2="4" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12" y2="3" />
+                <line x1="20" y1="21" x2="20" y2="16" />
+                <line x1="20" y1="12" x2="20" y2="3" />
+                <line x1="1" y1="14" x2="7" y2="14" />
+                <line x1="9" y1="8" x2="15" y2="8" />
+                <line x1="17" y1="16" x2="23" y2="16" />
+              </svg>
+            </button>
+
+            <!-- Search / Play Button -->
+            <button type="submit"
+                    class="absolute right-1.5 p-1.5 radius-btn bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </button>
+          </form>
+
+          <!-- Personal Genres & Custom Tags Row (Dynamically rendered from user preferences) -->
+          <div id="yt-genres-row" class="flex items-center space-x-1.5 overflow-x-auto shrink-0 pb-0.5"></div>
+
+          <!-- Inline Personal Genre & Custom Station Picker (Toggled via Sliders icon or "+ Genres") -->
+          <div id="yt-genre-customizer" class="hidden bg-zinc-950/95 border border-white/15 radius-card p-2.5 space-y-2 shrink-0 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="font-medium text-white text-[11px] flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+                <span>Your Personal Music Genres & Custom Tags</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <label class="flex items-center space-x-1 text-[10px] text-zinc-400 cursor-pointer">
+                  <input type="checkbox" id="yt-show-genres-checkbox" onchange="toggleShowGenreBar(this.checked, event)" checked
+                         class="mono-checkbox rounded bg-zinc-900 border-white/20 focus:ring-0 cursor-pointer" />
+                  <span>Show genre bar</span>
+                </label>
+                <button type="button" onclick="toggleYouTubeGenreCustomizer(event)"
+                        class="px-1.5 py-0.5 radius-btn bg-white/10 hover:bg-white/20 text-[10px] text-zinc-200 transition">
+                  Done
+                </button>
+              </div>
+            </div>
+
+            <!-- Preset Genres Grid (D&B, Classic, Epic, Anime, Movies, etc.) -->
+            <div id="yt-preset-genres-grid" class="flex flex-wrap gap-1"></div>
+
+            <!-- Add Custom Genre or Direct YouTube URL -->
+            <div class="flex items-center space-x-1.5 pt-1 border-t border-white/5">
+              <input type="text" id="yt-custom-genre-label"
+                     placeholder="Custom name (e.g. Cyberpunk, Hans Zimmer)..."
+                     autocomplete="off" spellcheck="false"
+                     class="w-40 bg-zinc-900 border border-white/10 focus:border-white/30 radius-btn px-2 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none" />
+              <input type="text" id="yt-custom-genre-query"
+                     placeholder="Search query or YouTube URL (optional)..."
+                     autocomplete="off" spellcheck="false"
+                     class="flex-1 bg-zinc-900 border border-white/10 focus:border-white/30 radius-btn px-2 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none" />
+              <button type="button" onclick="addCustomYouTubeGenre(event)"
+                      class="px-2.5 py-1 radius-btn bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white text-[11px] font-medium whitespace-nowrap transition flex items-center space-x-1">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>Add Tag</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Now Playing Deck (Shown when a track is loaded) -->
+          <div id="yt-now-playing-deck" class="hidden bg-zinc-950 border border-white/15 radius-card p-2 flex items-center space-x-3 shrink-0">
+            <!-- Placeholder slot where #yt-player-host overlays when Music tab is open (click toggles play/pause, no hover clutter) -->
+            <div id="yt-video-slot"
+                 onclick="toggleMusicPlayback(event)"
+                 title="Click to Play / Pause"
+                 class="w-[156px] h-[92px] rounded-lg bg-black border border-white/10 shrink-0 flex items-center justify-center text-[10px] text-zinc-600 cursor-pointer">
+              Loading player...
+            </div>
+
+            <!-- Track Info, External Time/Seek Bar & Transport Controls -->
+            <div class="flex-1 min-w-0 flex flex-col justify-between h-[92px]">
+              <div class="min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <div id="yt-current-title" class="text-xs font-semibold text-white truncate">Select a track</div>
+                  <span id="yt-status-pill" class="text-[9px] px-1.5 py-0.2 rounded-full bg-white/15 border border-white/25 text-white font-mono shrink-0">PLAYING</span>
+                </div>
+                <div id="yt-current-channel" class="text-[10px] text-zinc-400 truncate">YouTube Music</div>
+              </div>
+
+              <!-- External Time & Seek Progress Bar -->
+              <div class="flex items-center space-x-2 py-0.5">
+                <span id="yt-time-current" class="text-[10px] font-mono text-zinc-400 w-8 shrink-0">0:00</span>
+                <input type="range" id="yt-seek-slider" min="0" max="100" step="0.5" value="0"
+                       oninput="handleMusicSeekInput(this.value)"
+                       onchange="handleMusicSeekCommit(this.value)"
+                       class="yt-monochrome-slider flex-1 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer" />
+                <span id="yt-time-duration" class="text-[10px] font-mono text-zinc-500 w-8 text-right shrink-0">0:00</span>
+              </div>
+
+              <!-- Transport Bar -->
+              <div class="flex items-center justify-between gap-1.5 pt-1 border-t border-white/5">
+                <div class="flex items-center space-x-1.5">
+                  <!-- Play / Pause -->
+                  <button type="button" id="yt-deck-play-btn" onclick="toggleMusicPlayback(event)"
+                          class="px-2.5 py-1 radius-btn bg-white hover:bg-zinc-200 text-black text-[11px] font-medium flex items-center space-x-1 transition">
+                    <span id="yt-deck-play-icon" class="flex items-center justify-center">
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    </span>
+                    <span id="yt-deck-play-label">Pause</span>
+                  </button>
+
+                  <!-- Volume / Mute -->
+                  <button type="button" id="yt-deck-mute-btn" onclick="toggleMusicMute(event)"
+                          class="p-1.5 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition flex items-center justify-center">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                  </button>
+                  <input type="range" id="yt-volume-slider" min="0" max="100" value="80"
+                         oninput="handleMusicVolume(this.value)"
+                         class="yt-monochrome-slider w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer" />
+                </div>
+
+                <div class="flex items-center space-x-1">
+                  <!-- Shrink to Compact Island Pill (S25 / iPhone Mode) -->
+                  <button type="button" onclick="collapseIsland(event)"
+                          class="px-2 py-1 radius-btn bg-white/10 hover:bg-white/15 border border-white/15 text-zinc-200 hover:text-white text-[10px] font-medium flex items-center space-x-1 transition">
+                    <span>Mini Pill</span>
+                  </button>
+
+                  <!-- Open on YouTube in Browser -->
+                  <button type="button" onclick="openCurrentYouTubeInBrowser(event)"
+                          class="p-1 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </button>
+
+                  <!-- Stop Music -->
+                  <button type="button" onclick="stopMusicPlayback(event)"
+                          class="p-1 radius-btn bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Search Results & Recent Tracks List -->
+          <div id="yt-results-pane" class="flex-1 bg-zinc-950 border border-white/5 radius-card p-2.5 overflow-y-auto space-y-1.5 min-h-0 text-xs">
+            <div id="yt-results-list" class="space-y-1.5"></div>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 2: IN-ISLAND QUICK WEB SEARCH -->
+        <!-- ============================================== -->
+        <div id="tab-content-search" class="hidden flex-1 flex flex-col space-y-2 overflow-hidden min-h-0">
+          <form onsubmit="handleWebSearchSubmit(event)" class="relative flex items-center shrink-0">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="web-search-input" oninput="handleWebSearchInput(this.value)"
+                   placeholder="Search web or calculate (e.g. 15 * 84 + 10)..."
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   class="w-full bg-zinc-900 border border-white/10 focus:border-white/30 radius-card pl-9 pr-16 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none transition" />
+            
+            <!-- Minimal Clear 'X' SVG Button -->
+            <button type="button" id="web-search-clear-btn" onclick="clearSearchInput(event)"
+                    class="hidden absolute right-8 p-1 text-zinc-400 hover:text-white transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            <!-- Search Web in Browser -->
+            <button type="submit"
+                    class="absolute right-1.5 p-1.5 radius-btn bg-white/10 hover:bg-white/20 text-zinc-300 transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </button>
+          </form>
+
+          <div id="search-results-pane" class="flex-1 bg-zinc-950 border border-white/5 radius-card p-3 overflow-y-auto space-y-2 min-h-0 text-xs">
+            <div id="search-status-bar" class="flex items-center justify-between text-[11px] text-zinc-500 shrink-0">
+              <span id="search-engine-label">DuckDuckGo & Instant Answers</span>
+              <span class="text-[10px]">Press Enter to open in browser</span>
+            </div>
+            
+            <div id="search-results-list" class="space-y-2">
+              <div id="search-empty-state" class="py-12 text-center text-zinc-500 text-xs">
+                Type a query to search or enter a math formula (e.g. 24 * 7).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 3: INSTANT NOTES (Continuous Autosave & Ctrl+S) -->
+        <!-- ============================================== -->
+        <div id="tab-content-notes" class="hidden flex-1 flex space-x-2.5 overflow-hidden min-h-0">
+          <!-- Notes Sidebar -->
+          <div class="w-[150px] flex flex-col space-y-1.5 border-r border-white/10 pr-2 shrink-0">
+            <button onclick="createNewNote(event)"
+                    class="w-full py-1.5 px-2 radius-btn bg-white/[0.03] hover:bg-white/[0.07] border border-white/15 hover:border-white/25 text-zinc-300 hover:text-white text-xs font-medium flex items-center justify-center space-x-1.5 transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>New Note</span>
+            </button>
+
+            <!-- Notes List -->
+            <div id="notes-history-list" class="flex-1 overflow-y-auto space-y-1 text-xs"></div>
+          </div>
+
+          <!-- Note Editor -->
+          <div class="flex-1 flex flex-col space-y-1.5 overflow-hidden min-h-0">
+            <div class="flex items-center justify-between text-xs text-zinc-400 shrink-0 gap-2">
+              <input type="text" id="note-title-input" oninput="handleNoteTitleInput(this.value)"
+                     placeholder="Note Title..."
+                     autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                     class="flex-1 min-w-0 bg-transparent border-none text-white font-medium text-xs focus:outline-none" />
+              
+              <div class="flex items-center space-x-2 text-[10px] shrink-0 whitespace-nowrap">
+                <span id="note-autosave-indicator" class="inline-block w-14 text-right text-zinc-500 font-mono text-[10px] shrink-0">Autosaved</span>
+                <button type="button" onclick="openNotesFolder(event)"
+                        title="Open Notes Folder in Windows Explorer"
+                        class="inline-flex flex-row items-center space-x-1.5 px-2 py-0.5 radius-btn bg-white/[0.03] hover:bg-white/[0.08] border border-white/15 hover:border-white/25 text-zinc-300 hover:text-white transition whitespace-nowrap shrink-0">
+                  <svg class="w-3.5 h-3.5 text-amber-400/90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <span class="whitespace-nowrap">Open Folder</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Textarea: Autosaves on EVERY keystroke -->
+            <textarea id="note-body-input" oninput="handleNoteBodyInput(this.value)"
+                      placeholder="Start typing thoughts, snippets, or dropped text... (Autosaves automatically)"
+                      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                      class="flex-1 w-full bg-zinc-950 border border-white/10 focus:border-white/15 radius-card p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none resize-none font-mono min-h-0"></textarea>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 3.5: WHATSAPP WEB (Zero-RAM Lazy Engine) -->
+        <!-- ============================================== -->
+        <div id="tab-content-whatsapp" class="hidden flex-1 flex flex-col space-y-2 overflow-hidden min-h-0">
+          <!-- WhatsApp Control & RAM Status Bar -->
+          <div class="flex items-center justify-between bg-zinc-900/90 border border-white/10 radius-card px-3 py-1.5 shrink-0 text-xs">
+            <div class="flex items-center space-x-2">
+              <span id="wa-status-dot" class="w-2 h-2 rounded-full bg-zinc-600"></span>
+              <span id="wa-status-text" class="text-[11px] font-medium text-zinc-300">WhatsApp Engine • Sleeping (0 MB RAM)</span>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <!-- Scale / Zoom Selector -->
+              <div class="flex items-center space-x-1 text-[10px] text-zinc-400">
+                <span>Scale:</span>
+                <select id="wa-zoom-select" onchange="handleWhatsappZoomChange(this.value, event)"
+                        class="bg-zinc-950 border border-white/10 radius-btn px-1.5 py-0.5 text-[10px] text-zinc-200 focus:outline-none">
+                  <option value="0.65">65%</option>
+                  <option value="0.72" selected>72% (Fit)</option>
+                  <option value="0.80">80%</option>
+                  <option value="0.90">90%</option>
+                  <option value="1.00">100%</option>
+                </select>
+              </div>
+
+              <!-- Power / Free RAM Toggle Button -->
+              <button type="button" id="wa-power-btn" onclick="toggleWhatsappEngine(event)"
+                      class="px-2.5 py-1 radius-btn bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-medium flex items-center space-x-1.5 transition">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="6 4 20 12 6 20 6 4" />
+                </svg>
+                <span>Launch WhatsApp</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Native WhatsApp WebView Slot (When sleeping, shows zero-RAM standby card; when running, native WebView overlays here) -->
+          <div id="whatsapp-slot" class="flex-1 bg-zinc-950 border border-white/10 radius-card overflow-hidden flex flex-col items-center justify-center p-6 text-center min-h-0">
+            <div id="whatsapp-standby-view" class="max-w-[360px] space-y-3 flex flex-col items-center">
+              <div class="w-11 h-11 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
+              </div>
+              <div class="space-y-1">
+                <div class="text-xs font-semibold text-white">WhatsApp Web (Zero-RAM Standby)</div>
+                <p class="text-[11px] text-zinc-400 leading-relaxed">
+                  Currently using <strong class="text-emerald-400">0 MB of RAM</strong>. Click below to launch WhatsApp inside the Island — scan the QR code once with your phone and your login stays saved.
+                </p>
+              </div>
+              <button type="button" onclick="toggleWhatsappEngine(event)"
+                      class="px-4 py-1.5 radius-btn bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition shadow-sm">
+                Launch WhatsApp Now
+              </button>
+              <div class="text-[10px] text-zinc-500">
+                Tip: Click "Sleep (Free RAM)" anytime on the top bar or hide WhatsApp in Settings to free all memory.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 4: EXPANDED FULL SETTINGS PAGE -->
+        <!-- ============================================== -->
+        <div id="tab-content-settings" class="hidden flex-1 flex flex-col space-y-3 overflow-y-auto pr-1 text-xs min-h-0">
+          <div class="flex items-center justify-between border-b border-white/10 pb-1.5 shrink-0">
+            <div class="flex items-center space-x-2">
+              <span class="font-semibold text-white">Application Settings</span>
+              <span id="settings-saved-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 opacity-0 transition-opacity duration-300"></span>
+            </div>
+            <span id="settings-config-badge" class="text-[10px] px-2 py-0.5 radius-btn bg-white/5 border border-white/10 text-zinc-400 font-mono">Configured Locally</span>
+          </div>
+
+          <!-- Section 0: Island Tools (Order & Visibility) -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-zinc-200 text-xs">Island Tools & Tab Order</div>
+                <div class="text-[10px] text-zinc-500">Choose which tools appear in your Island and reorder them</div>
+              </div>
+              <button type="button" onclick="resetIslandToolsConfig(event)"
+                      class="px-2 py-0.5 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[10px] transition">
+                Reset Order
+              </button>
+            </div>
+            <div id="settings-tools-list" class="space-y-1.5"></div>
+          </div>
+
+          <!-- Section 0.5: YouTube & Music Personalization (Monochrome) -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-zinc-200 text-xs flex items-center space-x-1.5">
+                  <span>YouTube & Personal Music</span>
+                  <span class="text-[9px] px-1.5 py-0.2 rounded-full bg-white/10 border border-white/15 text-zinc-300 font-mono">No Spam Suggestions</span>
+                </div>
+                <div class="text-[10px] text-zinc-500">Pick your favorite genres (D&B, Classic, Epic, Anime, Movies...) or add custom tags</div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <label class="flex items-center space-x-1 text-[10px] text-zinc-300 cursor-pointer">
+                  <input type="checkbox" id="settings-yt-show-genres" onchange="toggleShowGenreBar(this.checked, event)" checked
+                         class="mono-checkbox rounded bg-zinc-900 border-white/20 focus:ring-0 cursor-pointer" />
+                  <span>Show Genre Bar</span>
+                </label>
+                <button type="button" onclick="clearYouTubeRecentHistory(event)"
+                        class="px-2 py-0.5 radius-btn bg-white/5 hover:bg-white/15 border border-white/10 hover:border-white/25 text-zinc-400 hover:text-white text-[10px] transition">
+                  Clear History
+                </button>
+              </div>
+            </div>
+
+            <!-- Preset Genres Selector inside Settings -->
+            <div id="settings-yt-genres-grid" class="flex flex-wrap gap-1 pt-0.5"></div>
+
+            <!-- Add Custom Genre inside Settings -->
+            <div class="flex items-center space-x-1.5 pt-1 border-t border-white/5">
+              <input type="text" id="settings-yt-custom-label"
+                     placeholder="Custom genre/artist (e.g. D&B Liquid, Ghibli)..."
+                     autocomplete="off" spellcheck="false"
+                     class="w-44 bg-zinc-900 border border-white/10 focus:border-white/30 radius-btn px-2 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none" />
+              <input type="text" id="settings-yt-custom-query"
+                     placeholder="Search query or YouTube URL (optional)..."
+                     autocomplete="off" spellcheck="false"
+                     class="flex-1 bg-zinc-900 border border-white/10 focus:border-white/30 radius-btn px-2 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none" />
+              <button type="button" onclick="addCustomYouTubeGenreFromSettings(event)"
+                      class="px-2.5 py-1 radius-btn bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white text-[11px] font-medium whitespace-nowrap transition flex items-center space-x-1">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 1: AI Provider & Endpoint -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Local & Cloud AI Services</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Provider</label>
+                <select id="settings-provider-select" onchange="onSettingsProviderChange(event)"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <optgroup label="Local AI">
+                    <option value="ollama:local" selected>Local Ollama</option>
+                    <option value="custom:local">Custom Local Server</option>
+                  </optgroup>
+                  <optgroup label="Cloud API">
+                    <option value="cloud:gemini">Google Gemini</option>
+                    <option value="cloud:openai">OpenAI</option>
+                    <option value="cloud:anthropic">Anthropic Claude</option>
+                    <option value="cloud:openrouter">OpenRouter</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Model Name / Identifier</label>
+                <input type="text" id="settings-model-input" value="llama3.2"
+                       placeholder="e.g. gemini-2.5-flash, gpt-4o, claude-3-7-sonnet"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       oninput="saveSettings()"
+                       class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 font-mono focus:outline-none" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Server Endpoint URL</label>
+                <input type="text" id="settings-endpoint-input" value="http://localhost:11434"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       oninput="saveSettings()"
+                       class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none" />
+              </div>
+
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">API Key (Gemini, OpenAI, Claude)</label>
+                <input type="password" id="settings-api-key" placeholder="Enter API Key..."
+                       autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       oninput="saveSettings()"
+                       class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 1.5: AI Personality & Soul (.soul File) -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-zinc-300 text-xs flex items-center space-x-1.5">
+                  <span>AI Personality</span>
+                  <span class="text-[10px] px-1.5 py-0.2 radius-btn bg-purple-950/60 border border-purple-400/30 text-purple-300 font-mono">assistant.soul</span>
+                </div>
+                <div class="text-[10px] text-zinc-500">System prompt injected into all models (Ollama, Gemini, Claude, OpenAI)</div>
+              </div>
+              <div class="flex items-center space-x-1">
+                <button type="button" onclick="openSoulFile(event)" title="Open .soul file in Notepad / default editor"
+                        class="px-2 py-0.5 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-[10px] transition flex items-center space-x-1">
+                  <svg class="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                  </svg>
+                  <span>Open File</span>
+                </button>
+                <button type="button" onclick="resetSoulPrompt(event)" title="Reset to stock soul prompt"
+                        class="px-2 py-0.5 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[10px] transition flex items-center space-x-1">
+                  <svg class="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                  </svg>
+                  <span>Reset Stock</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <textarea id="settings-soul-input" rows="2"
+                        placeholder="you are a good AI assistant, respond briefly dont waste too much tokens"
+                        oninput="saveSettings()"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn p-2 text-xs text-zinc-200 font-mono focus:outline-none resize-none leading-relaxed"></textarea>
+            </div>
+            <div class="text-[10px] text-zinc-500 flex justify-between items-center">
+              <span>Saved in Documents/IslandNotes/assistant.soul</span>
+              <span id="soul-status-badge" class="text-zinc-500 font-mono">Synced</span>
+            </div>
+          </div>
+
+          <!-- Section 2: Preferred Search Engine -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Search Tab Configuration</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Preferred Search Provider</label>
+                <select id="settings-search-provider" onchange="saveSettings()"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <option value="duckduckgo" selected>DuckDuckGo (Privacy)</option>
+                  <option value="google">Google Search</option>
+                  <option value="searxng">SearXNG (Self-hosted)</option>
+                  <option value="in-island">In-Island Quick Answers Only</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Search Action</label>
+                <select id="settings-search-action" onchange="saveSettings()"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <option value="inline" selected>Show Answer Inline in Island</option>
+                  <option value="browser">Open in Default Browser</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Notes Folder Path & Format -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Notes Directory & File Format</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Destination Folder for Notes</label>
+                <input type="text" id="settings-notes-folder" value="~/Documents/IslandNotes"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       oninput="saveSettings()"
+                       class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none" />
+              </div>
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">File Format / Extension</label>
+                <select id="settings-notes-format" onchange="saveSettings()"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <option value="txt" selected>.txt (Plain Text - Default)</option>
+                  <option value="md">.md (Markdown)</option>
+                </select>
+              </div>
+            </div>
+            <button onclick="openNotesFolder(event)"
+                    class="mt-1 px-2.5 py-1 radius-btn bg-white/10 hover:bg-white/20 text-[11px] text-zinc-300 flex items-center space-x-1.5 transition">
+              <svg class="w-3.5 h-3.5 text-amber-400/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Open Notes Folder</span>
+            </button>
+          </div>
+
+          <!-- Section 4: Display Layout -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Operating System Layout</div>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="modal-mode-win" onclick="setOSMode('win11', event)"
+                      class="px-2 py-1.5 radius-btn text-xs font-medium bg-white text-black transition">
+                Windows 11 Pill
+              </button>
+              <button id="modal-mode-mac" onclick="setOSMode('mac', event)"
+                      class="px-2 py-1.5 radius-btn text-xs font-medium text-zinc-400 hover:text-white bg-white/5 transition">
+                MacBook Notch
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 5: AI Response Notifications & Sound -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-medium text-zinc-200 text-xs">AI Completion Sound & Shake</div>
+                <div class="text-[10px] text-zinc-500">Notifies when long/local AI generation finishes</div>
+              </div>
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="settings-sound-enabled" onchange="saveSettings()" checked
+                       class="rounded bg-zinc-900 border-white/20 text-emerald-500 focus:ring-0 cursor-pointer" />
+                <span class="text-xs text-zinc-300">Enabled</span>
+              </label>
+            </div>
+
+            <div class="space-y-1.5 pt-1 border-t border-white/5">
+              <div class="flex items-center justify-between text-[11px] text-zinc-400">
+                <span id="settings-sound-status">Default soft chime</span>
+                <button type="button" onclick="playNotificationSound()"
+                        class="px-2 py-0.5 radius-btn bg-white/10 hover:bg-white/20 border border-white/10 text-zinc-200 text-[10px] transition flex items-center space-x-1">
+                  <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="6 4 20 12 6 20 6 4" />
+                  </svg>
+                  <span>Test Sound</span>
+                </button>
+              </div>
+
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Custom Audio File (MP3 / WAV)</label>
+                <div class="flex items-center space-x-1.5">
+                  <input type="file" id="settings-sound-file" accept="audio/*" onchange="handleCustomSoundUpload(event)"
+                         class="text-[10px] text-zinc-400 file:mr-2 file:py-0.5 file:px-2 file:rounded file:border file:border-white/10 file:text-[10px] file:bg-white/10 file:text-zinc-200 hover:file:bg-white/20 cursor-pointer" />
+                  <button type="button" onclick="resetDefaultSound()" title="Reset to default chime"
+                          class="px-2 py-1 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[10px] transition shrink-0">
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 6: Application Controls -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Application</div>
+            <div class="flex items-center justify-between">
+              <span class="text-zinc-400 text-xs">Exit Dynamic Island</span>
+              <button onclick="exitApplication(event)"
+                      class="px-2.5 py-1 radius-btn bg-white/10 hover:bg-white/20 border border-white/10 text-zinc-300 text-xs transition">
+                Quit App
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 4. DRAG HOVER STATE (Vortex Drop Area) -->
+      <!-- ================================================== -->
+      <div id="stage-drag-hover" class="stage-overlay-layer stage-inactive flex flex-col items-center justify-center p-4 text-center">
+        <svg class="w-8 h-8 text-white mb-1.5 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <div class="text-xs font-semibold text-white">Drop File to Action</div>
+        <div class="text-[10px] text-zinc-400 mt-0.5">Drop anywhere on the island</div>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 5. ACTION CHOOSER (After Dropping File) -->
+      <!-- ================================================== -->
+      <div id="stage-action-chooser" class="stage-overlay-layer stage-inactive flex flex-col p-3">
+        <div class="flex items-center justify-between border-b border-white/10 pb-1.5 mb-2 shrink-0">
+          <div class="truncate">
+            <div id="dropped-filename" class="text-xs font-medium text-white truncate max-w-[320px]">file.pdf</div>
+            <div class="text-[10px] text-zinc-500">Choose action for this file:</div>
+          </div>
+          <button onclick="cancelActionChooser(event)" class="p-1 text-zinc-400 hover:text-white">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 flex-1 text-xs">
+          <button onclick="executeFileAction('ai', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">Ask AI</span>
+            <span class="text-[10px] text-zinc-400">Analyze contents</span>
+          </button>
+          <button onclick="executeFileAction('notes', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">To Note</span>
+            <span class="text-[10px] text-zinc-400">Append to note</span>
+          </button>
+          <button onclick="executeFileAction('folder', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">Save to PC</span>
+            <span class="text-[10px] text-zinc-400">Move to project folder</span>
+          </button>
+          <button onclick="executeFileAction('share', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">Share</span>
+            <span class="text-[10px] text-zinc-400">Quick Share / AirDrop</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

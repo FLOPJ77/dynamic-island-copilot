@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Island — Monochrome Edition</title>
+  <!-- Tailwind CSS via allowlisted CDN -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --spring-curve: cubic-bezier(0.16, 1, 0.3, 1);
+      --peek-curve: cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .island-shell {
+      transition: width 0.38s var(--peek-curve),
+                  height 0.38s var(--peek-curve),
+                  border-radius 0.38s var(--spring-curve),
+                  margin-top 0.35s var(--spring-curve),
+                  box-shadow 0.3s ease,
+                  border-color 0.25s ease,
+                  background-color 0.25s ease;
+      transform-origin: top center;
+    }
+
+    .island-glow {
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    .island-drag-glow {
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.95), 0 0 0 1.5px rgba(255, 255, 255, 0.4) !important;
+      animation: dragPulse 1.5s infinite ease-in-out;
+    }
+
+    @keyframes dragPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    .radius-island { border-radius: 24px; }
+    .radius-card { border-radius: 14px; }
+    .radius-btn { border-radius: 9px; }
+
+    ::-webkit-scrollbar {
+      width: 3px;
+      height: 3px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body class="relative h-screen w-screen overflow-hidden bg-black text-zinc-100 flex flex-col justify-between selection:bg-white selection:text-black">
+
+  <!-- ======================================================== -->
+  <!-- OBSIDIAN WALLPAPER -->
+  <!-- ======================================================== -->
+  <div id="desktop-bg" class="absolute inset-0 bg-cover bg-center pointer-events-none transition-all duration-700"
+       style="background: radial-gradient(circle at 50% 0%, #171717 0%, #0a0a0a 50%, #000000 100%);">
+    <div class="absolute inset-0 opacity-10"
+         style="background-image: radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px); background-size: 24px 24px;"></div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- TOP SYSTEM BAR (The Island Area) -->
+  <!-- ======================================================== -->
+  <header class="relative z-50 w-full flex flex-col items-center pt-0 px-6 pointer-events-auto">
+
+    <!-- THE DYNAMIC ISLAND -->
+    <div id="dynamic-island"
+         onmouseenter="handleIslandMouseEnter()"
+         onmouseleave="handleIslandMouseLeave()"
+         onclick="handleIslandClick(event)"
+         ondragover="handleIslandDragOver(event)"
+         ondragleave="handleIslandDragLeave(event)"
+         ondrop="handleIslandDrop(event)"
+         class="island-shell relative z-50 bg-[#0a0a0a] text-zinc-100 border border-white/10 island-glow flex flex-col overflow-hidden cursor-pointer select-none"
+         style="width: 76px; height: 28px; border-radius: 9999px; margin-top: 10px;">
+
+      <!-- ================================================== -->
+      <!-- 1. STAGE 1: IDLE VIEW (Minimal Pill with Logo SVG) -->
+      <!-- ================================================== -->
+      <div id="stage-idle" class="w-full h-full flex items-center justify-center">
+        <svg class="w-3.5 h-3.5 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="3" fill="currentColor" />
+        </svg>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 2. STAGE 2: HOVER PEEK (Top-Nav Bar with SVGs) -->
+      <!-- ================================================== -->
+      <div id="stage-peek" class="hidden w-full h-full px-2.5 flex items-center justify-between opacity-0 transition-opacity duration-200">
+        <!-- Logo Glyph -->
+        <div class="flex items-center text-zinc-400 pl-1">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+          </svg>
+        </div>
+
+        <!-- Middle Action Icons (AI, Search, Notes, + Note, Settings) -->
+        <div class="flex items-center space-x-1">
+          <!-- AI Chat Icon -->
+          <button onclick="openTabDirect('ai', event)" title="AI Copilot"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+            </svg>
+          </button>
+
+          <!-- Search (Lens) Icon -->
+          <button onclick="openTabDirect('search', event)" title="Mini Web Search"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
+
+          <!-- Notes Icon -->
+          <button onclick="openTabDirect('notes', event)" title="Instant Notes"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </button>
+
+          <!-- Quick + New Note Icon -->
+          <button onclick="createNewNoteDirect(event)" title="New Quick Note (+)"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+
+          <!-- Three Dots Settings -->
+          <button onclick="openTabDirect('settings', event)" title="Settings"
+                  class="p-1 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="19" cy="12" r="1" />
+              <circle cx="5" cy="12" r="1" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 3. STAGE 3: EXPANDED MODAL (AI, Search, Notes, Settings) -->
+      <!-- ================================================== -->
+      <div id="stage-expanded" class="hidden flex-1 flex flex-col p-3.5 opacity-0 transition-opacity duration-200 cursor-default">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-2 mb-2.5">
+          <!-- Tab Navigation -->
+          <div class="flex items-center space-x-1 bg-white/5 p-1 radius-card border border-white/5">
+            <!-- AI Tab -->
+            <button id="tab-btn-ai" onclick="switchTab('ai', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 bg-white text-black shadow-sm">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+              </svg>
+              <span>AI</span>
+            </button>
+
+            <!-- Search Tab -->
+            <button id="tab-btn-search" onclick="switchTab('search', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span>Search</span>
+            </button>
+
+            <!-- Notes Tab -->
+            <button id="tab-btn-notes" onclick="switchTab('notes', event)"
+                    class="px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span>Notes</span>
+            </button>
+          </div>
+
+          <!-- Header Right Icons -->
+          <div class="flex items-center space-x-1">
+            <button id="tab-btn-settings" onclick="switchTab('settings', event)" title="Settings"
+                    class="p-1.5 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="19" cy="12" r="1" />
+                <circle cx="5" cy="12" r="1" />
+              </svg>
+            </button>
+            <button onclick="collapseIsland(event)" title="Close (Esc)"
+                    class="p-1.5 radius-btn text-zinc-400 hover:text-white hover:bg-white/10 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 1: AI COPILOT -->
+        <!-- ============================================== -->
+        <div id="tab-content-ai" class="flex-1 flex flex-col space-y-2">
+          <!-- Active model badge (NO UNDERLINE) -->
+          <div class="flex items-center justify-between text-[11px] text-zinc-400 px-1">
+            <span id="active-model-display">Local Ollama • Llama 3.2</span>
+            <button onclick="switchTab('settings', event)" class="text-zinc-400 hover:text-zinc-200 text-[10px] transition">
+              Configure endpoint / key
+            </button>
+          </div>
+
+          <!-- Chat conversation box with minimal avatar dots -->
+          <div id="chat-stream-box" class="flex-1 bg-zinc-950 border border-white/5 radius-card p-3 overflow-y-auto space-y-2.5 min-h-[200px] max-h-[250px]">
+            <div class="flex items-start space-x-2 text-xs">
+              <!-- AI Minimal Avatar: Clean concentric circle -->
+              <div class="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+              </div>
+              <div class="flex-1 text-zinc-300 leading-relaxed bg-white/5 p-2 radius-card border border-white/5">
+                Ready for quick questions, translations, or code checks. Connected to your local model.
+              </div>
+            </div>
+          </div>
+
+          <!-- Prompt Input with Arrow SVG Button -->
+          <form onsubmit="handleSendPrompt(event)" class="relative flex items-center">
+            <input type="text" id="ai-prompt-input"
+                   placeholder="Ask local AI or type prompt..."
+                   class="w-full bg-zinc-900 border border-white/10 focus:border-white/30 radius-card px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none transition pr-11" />
+            <button type="submit" title="Send"
+                    class="absolute right-1.5 p-1.5 radius-btn bg-white text-black hover:bg-zinc-200 transition flex items-center justify-center">
+              <!-- Clean Arrow SVG -->
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 2: IN-ISLAND QUICK WEB SEARCH -->
+        <!-- ============================================== -->
+        <div id="tab-content-search" class="hidden flex-1 flex flex-col space-y-2">
+          <div class="relative flex items-center">
+            <svg class="w-4 h-4 text-zinc-400 absolute left-3 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="web-search-input" oninput="handleWebSearch(this.value)"
+                   placeholder="Search web, calculate, or translate..."
+                   class="w-full bg-zinc-900 border border-white/10 focus:border-white/30 radius-card pl-9 pr-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none transition" />
+          </div>
+
+          <div id="search-results-pane" class="flex-1 bg-zinc-950 border border-white/5 radius-card p-3 overflow-y-auto space-y-2.5 min-h-[200px] max-h-[250px] text-xs">
+            <div class="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold">Quick Answers & Results</div>
+            
+            <div id="search-result-card" class="bg-white/5 p-2.5 radius-card border border-white/5 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold text-white text-xs">Wikipedia / Instant Answer</span>
+                <span class="text-[10px] text-zinc-400 font-mono">In-Island</span>
+              </div>
+              <p id="search-result-text" class="text-zinc-300 text-xs leading-relaxed">
+                Type a query above to fetch instant calculations, definitions, or search results directly inside this island without opening a full browser window.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
+              <button onclick="setSearchQuery('translate Good morning to French')"
+                      class="text-left p-2 radius-btn bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 transition">
+                🔤 Translate "Good morning"
+              </button>
+              <button onclick="setSearchQuery('1250 * 0.18')"
+                      class="text-left p-2 radius-btn bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 transition">
+                🧮 Calculate 1250 * 0.18
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 3: INSTANT NOTES (Continuous Autosave & Ctrl+S) -->
+        <!-- ============================================== -->
+        <div id="tab-content-notes" class="hidden flex-1 flex space-x-2.5 min-h-[235px]">
+          <!-- Notes Sidebar -->
+          <div class="w-[140px] flex flex-col space-y-1.5 border-r border-white/10 pr-2">
+            <button onclick="createNewNote(event)"
+                    class="w-full py-1.5 px-2 radius-btn bg-white text-black hover:bg-zinc-200 text-xs font-medium flex items-center justify-center space-x-1 transition shadow-sm">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>New Note</span>
+            </button>
+
+            <!-- Notes List -->
+            <div id="notes-history-list" class="flex-1 overflow-y-auto space-y-1 text-xs"></div>
+          </div>
+
+          <!-- Note Editor -->
+          <div class="flex-1 flex flex-col space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-zinc-400">
+              <input type="text" id="note-title-input" oninput="handleNoteTitleInput(this.value)"
+                     placeholder="Note Title..."
+                     class="bg-transparent border-none text-white font-medium text-xs focus:outline-none w-2/3" />
+              
+              <div class="flex items-center space-x-1.5 text-[10px]">
+                <span id="note-autosave-indicator" class="text-zinc-500">Autosaved</span>
+                <button onclick="exportCurrentNoteToFile(event)" title="Save note to folder (Ctrl+S)"
+                        class="text-zinc-400 hover:text-white flex items-center space-x-1 px-1.5 py-0.5 radius-btn hover:bg-white/10 border border-white/10 transition">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                  </svg>
+                  <span>Save</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Textarea: Autosaves on EVERY keystroke! -->
+            <textarea id="note-body-input" oninput="handleNoteBodyInput(this.value)"
+                      placeholder="Start typing thoughts, snippets, or dropped text... (Autosaves automatically)"
+                      class="flex-1 w-full bg-zinc-950 border border-white/10 focus:border-white/20 radius-card p-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none resize-none font-mono"></textarea>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 4: EXPANDED FULL SETTINGS PAGE -->
+        <!-- ============================================== -->
+        <div id="tab-content-settings" class="hidden flex-1 flex flex-col space-y-3 overflow-y-auto pr-1 text-xs">
+          <div class="flex items-center justify-between border-b border-white/10 pb-1.5">
+            <span class="font-semibold text-white">Application Settings</span>
+            <span class="text-[10px] text-zinc-500">Configured locally</span>
+          </div>
+
+          <!-- Section 1: AI Provider & Endpoint -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Local & Cloud AI Services</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Provider</label>
+                <select id="settings-provider-select" onchange="onSettingsProviderChange(event)"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <optgroup label="Local AI">
+                    <option value="ollama:llama3.2" selected>Local Ollama (Llama 3.2)</option>
+                    <option value="ollama:deepseek-r1">Local Ollama (DeepSeek-R1)</option>
+                    <option value="ollama:mistral">Local Ollama (Mistral)</option>
+                    <option value="ollama:phi4">Local Ollama (Phi-4)</option>
+                    <option value="custom:local">Custom Local Server</option>
+                  </optgroup>
+                  <optgroup label="Cloud API">
+                    <option value="cloud:openai">OpenAI (GPT-4o Mini)</option>
+                    <option value="cloud:anthropic">Anthropic (Claude 3.5)</option>
+                    <option value="cloud:gemini">Google (Gemini 2.0)</option>
+                    <option value="cloud:openrouter">OpenRouter Endpoint</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Server Endpoint URL</label>
+                <input type="text" id="settings-endpoint-input" value="http://localhost:11434"
+                       oninput="saveSettings()"
+                       class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[10px] text-zinc-400 block mb-1">API Key (Stored securely)</label>
+              <input type="password" id="settings-api-key" placeholder="Optional for cloud APIs..."
+                     oninput="saveSettings()"
+                     class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none" />
+            </div>
+          </div>
+
+          <!-- Section 2: Preferred Search Engine -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Search Tab Configuration</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Preferred Search Provider</label>
+                <select id="settings-search-provider" onchange="saveSettings()"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <option value="duckduckgo" selected>DuckDuckGo (Privacy)</option>
+                  <option value="google">Google Search</option>
+                  <option value="searxng">SearXNG (Self-hosted)</option>
+                  <option value="in-island">In-Island Quick Answers Only</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-[10px] text-zinc-400 block mb-1">Search Action</label>
+                <select id="settings-search-action" onchange="saveSettings()"
+                        class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-200 focus:outline-none">
+                  <option value="inline" selected>Show Answer Inline in Island</option>
+                  <option value="browser">Open in Default Browser</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Notes Folder Path -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Notes Directory on PC</div>
+            <div>
+              <label class="text-[10px] text-zinc-400 block mb-1">Destination Folder for Notes</label>
+              <input type="text" id="settings-notes-folder" value="~/Documents/IslandNotes"
+                     oninput="saveSettings()"
+                     class="w-full bg-zinc-900 border border-white/10 radius-btn px-2 py-1 text-xs text-zinc-300 font-mono focus:outline-none" />
+            </div>
+          </div>
+
+          <!-- Section 4: Display Layout -->
+          <div class="bg-white/5 p-3 radius-card border border-white/5 space-y-2">
+            <div class="font-medium text-zinc-300 text-xs">Operating System Layout</div>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="modal-mode-win" onclick="setOSMode('win11', event)"
+                      class="px-2 py-1.5 radius-btn text-xs font-medium bg-white text-black transition">
+                Windows 11 Pill
+              </button>
+              <button id="modal-mode-mac" onclick="setOSMode('mac', event)"
+                      class="px-2 py-1.5 radius-btn text-xs font-medium text-zinc-400 hover:text-white bg-white/5 transition">
+                MacBook Notch
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 4. DRAG HOVER STATE (Vortex Drop Area) -->
+      <!-- ================================================== -->
+      <div id="stage-drag-hover" class="hidden flex-1 flex flex-col items-center justify-center p-4 text-center">
+        <svg class="w-8 h-8 text-white mb-1.5 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <div class="text-xs font-semibold text-white">Drop File to Action</div>
+        <div class="text-[10px] text-zinc-400 mt-0.5">Drop anywhere on the island</div>
+      </div>
+
+      <!-- ================================================== -->
+      <!-- 5. ACTION CHOOSER (After Dropping File) -->
+      <!-- ================================================== -->
+      <div id="stage-action-chooser" class="hidden flex-1 flex flex-col p-3">
+        <div class="flex items-center justify-between border-b border-white/10 pb-1.5 mb-2">
+          <div class="truncate">
+            <div id="dropped-filename" class="text-xs font-medium text-white truncate max-w-[280px]">file.pdf</div>
+            <div class="text-[10px] text-zinc-500">Choose action for this file:</div>
+          </div>
+          <button onclick="cancelActionChooser(event)" class="p-1 text-zinc-400 hover:text-white">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 flex-1 text-xs">
+          <button onclick="executeFileAction('ai', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">Ask AI</span>
+            <span class="text-[10px] text-zinc-400">Analyze contents</span>
+          </button>
+          <button onclick="executeFileAction('notes', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">To Note</span>
+            <span class="text-[10px] text-zinc-400">Append to note</span>
+          </button>
+          <button onclick="executeFileAction('folder', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">Save to PC</span>
+            <span class="text-[10px] text-zinc-400">Move to project folder</span>
+          </button>
+          <button onclick="executeFileAction('share', event)"
+                  class="radius-card p-2 bg-white/5 hover:bg-white/10 border border-white/10 flex flex-col items-center justify-center text-center transition">
+            <span class="font-medium text-white">Share</span>
+            <span class="text-[10px] text-zinc-400">Quick Share / AirDrop</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="island-toast" class="hidden mt-3 px-3 py-1 radius-card bg-zinc-900 border border-white/15 text-zinc-200 text-xs shadow-xl flex items-center space-x-1.5 animate-bounce">
+      <span id="toast-msg">Saved</span>
+    </div>
+
+  </header>
+
+  <!-- ======================================================== -->
+  <!-- CENTER HELPER -->
+  <!-- ======================================================== -->
+  <main class="relative z-10 flex-1 flex flex-col items-center justify-center px-4 text-center pointer-events-none">
+    <div class="max-w-xs bg-zinc-950/70 backdrop-blur-md p-4 radius-island border border-white/10 shadow-2xl pointer-events-auto">
+      <h1 class="text-xs font-semibold text-white uppercase tracking-wider mb-1">Dynamic Island</h1>
+      <p class="text-[11px] text-zinc-400 leading-relaxed mb-3">
+        Hover to peek top-nav. Click to expand. Notes autosave continuously (Ctrl+S to save instantly).
+      </p>
+
+      <div class="grid grid-cols-2 gap-1.5 text-xs">
+        <button onclick="toggleIsland(event)"
+                class="py-1.5 px-2 radius-btn bg-white text-black hover:bg-zinc-200 font-medium transition">
+          Open Island
+        </button>
+        <button onclick="simulateDragAndDrop(event)"
+                class="py-1.5 px-2 radius-btn bg-white/10 hover:bg-white/15 text-zinc-200 border border-white/10 transition">
+          Test Drop
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- BOTTOM FOOTER -->
+  <!-- ======================================================== -->
+  <footer class="relative z-30 w-full px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-2 bg-black/80 backdrop-blur-xl border-t border-white/10 text-xs">
+    <div class="flex items-center space-x-2">
+      <span class="text-zinc-500 font-medium">Layout:</span>
+      <button id="quick-toggle-win" onclick="setOSMode('win11', event)" class="px-2 py-0.5 radius-btn bg-white text-black font-medium transition">
+        Windows 11
+      </button>
+      <button id="quick-toggle-mac" onclick="setOSMode('mac', event)" class="px-2 py-0.5 radius-btn text-zinc-400 hover:text-white bg-white/5 transition">
+        MacBook Notch
+      </button>
+    </div>
+
+    <!-- Draggable Sample Files -->
+    <div class="flex items-center space-x-2 text-zinc-400 text-[11px]">
+      <span>Drag file:</span>
+      <div draggable="true" ondragstart="handleSampleDragStart(event, 'notes_backup.md')"
+           class="px-2 py-0.5 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 cursor-grab active:cursor-grabbing">
+        notes_backup.md
+      </div>
+      <div draggable="true" ondragstart="handleSampleDragStart(event, 'query.sql')"
+           class="px-2 py-0.5 radius-btn bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 cursor-grab active:cursor-grabbing">
+        query.sql
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================== -->
+  <!-- JAVASCRIPT: CONTROLLER & AUTOSAVE -->
+  <!-- ======================================================== -->
+  <script>
+    const safeStorage = {
+      _mem: {},
+      getItem(key) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            return window.localStorage.getItem(key);
+          }
+        } catch (e) {}
+        return this._mem[key] || null;
+      },
+      setItem(key, val) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, val);
+          }
+        } catch (e) {}
+        this._mem[key] = val;
+      }
+    };
+
+    window.state = {
+      osMode: safeStorage.getItem('island_os_mode') || 'win11',
+      islandState: 'idle',
+      activeTab: safeStorage.getItem('island_last_tab') || 'ai',
+      currentDroppedFile: null,
+      notes: [],
+      currentNoteId: null,
+      aiRunning: false,
+    };
+
+    // DOM Elements
+    const island = document.getElementById('dynamic-island');
+    const stageIdle = document.getElementById('stage-idle');
+    const stagePeek = document.getElementById('stage-peek');
+    const stageExpanded = document.getElementById('stage-expanded');
+    const stageDragHover = document.getElementById('stage-drag-hover');
+    const stageActionChooser = document.getElementById('stage-action-chooser');
+    const chatStreamBox = document.getElementById('chat-stream-box');
+    const promptInput = document.getElementById('ai-prompt-input');
+    const notesHistoryList = document.getElementById('notes-history-list');
+    const noteTitleInput = document.getElementById('note-title-input');
+    const noteBodyInput = document.getElementById('note-body-input');
+    const noteAutosaveIndicator = document.getElementById('note-autosave-indicator');
+    const toast = document.getElementById('island-toast');
+    const toastMsg = document.getElementById('toast-msg');
+
+    // --------------------------------------------------------
+    // Geometry & Layout
+    // --------------------------------------------------------
+    window.applyDimensions = function() {
+      if (state.islandState === 'idle') {
+        if (state.osMode === 'mac') {
+          island.style.width = '196px';
+          island.style.height = '34px';
+          island.style.borderRadius = '0 0 16px 16px';
+          island.style.marginTop = '0px';
+          island.style.borderTop = 'none';
+        } else {
+          island.style.width = '76px';
+          island.style.height = '28px';
+          island.style.borderRadius = '9999px';
+          island.style.marginTop = '10px';
+          island.style.borderTop = '1px solid rgba(255, 255, 255, 0.1)';
+        }
+
+        stageIdle.classList.remove('hidden');
+        stagePeek.classList.add('hidden');
+        stagePeek.classList.add('opacity-0');
+        stageExpanded.classList.add('hidden');
+        stageExpanded.classList.add('opacity-0');
+        stageDragHover.classList.add('hidden');
+        stageActionChooser.classList.add('hidden');
+        island.classList.remove('island-drag-glow');
+      } else if (state.islandState === 'peek') {
+        island.style.width = state.osMode === 'mac' ? '280px' : '260px';
+        island.style.height = state.osMode === 'mac' ? '34px' : '30px';
+        island.style.borderRadius = state.osMode === 'mac' ? '0 0 16px 16px' : '9999px';
+        island.style.marginTop = state.osMode === 'mac' ? '0px' : '10px';
+
+        stageIdle.classList.add('hidden');
+        stageExpanded.classList.add('hidden');
+        stageExpanded.classList.add('opacity-0');
+        stageDragHover.classList.add('hidden');
+        stageActionChooser.classList.add('hidden');
+        stagePeek.classList.remove('hidden');
+        setTimeout(() => stagePeek.classList.remove('opacity-0'), 30);
+      } else if (state.islandState === 'expanded') {
+        island.style.width = '520px';
+        island.style.height = '380px';
+        island.style.borderRadius = state.osMode === 'mac' ? '0 0 24px 24px' : '24px';
+        island.style.marginTop = state.osMode === 'mac' ? '0px' : '10px';
+        island.style.borderTop = state.osMode === 'mac' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)';
+
+        stageIdle.classList.add('hidden');
+        stagePeek.classList.add('hidden');
+        stageDragHover.classList.add('hidden');
+        stageActionChooser.classList.add('hidden');
+        stageExpanded.classList.remove('hidden');
+        setTimeout(() => stageExpanded.classList.remove('opacity-0'), 30);
+      } else if (state.islandState === 'drag-hover') {
+        island.style.width = '320px';
+        island.style.height = '140px';
+        island.style.borderRadius = '24px';
+        island.style.marginTop = state.osMode === 'mac' ? '0px' : '10px';
+
+        stageIdle.classList.add('hidden');
+        stagePeek.classList.add('hidden');
+        stageExpanded.classList.add('hidden');
+        stageActionChooser.classList.add('hidden');
+        stageDragHover.classList.remove('hidden');
+        island.classList.add('island-drag-glow');
+      } else if (state.islandState === 'action-chooser') {
+        island.style.width = '440px';
+        island.style.height = '190px';
+        island.style.borderRadius = '24px';
+        island.style.marginTop = state.osMode === 'mac' ? '0px' : '10px';
+
+        stageIdle.classList.add('hidden');
+        stagePeek.classList.add('hidden');
+        stageExpanded.classList.add('hidden');
+        stageDragHover.classList.add('hidden');
+        stageActionChooser.classList.remove('hidden');
+        island.classList.remove('island-drag-glow');
+      }
+    };
+
+    window.handleIslandMouseEnter = function() {
+      if (state.islandState === 'idle') {
+        state.islandState = 'peek';
+        window.applyDimensions();
+      }
+    };
+
+    window.handleIslandMouseLeave = function() {
+      if (state.islandState === 'peek') {
+        state.islandState = 'idle';
+        window.applyDimensions();
+      }
+    };
+
+    window.handleIslandClick = function(e) {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea') || e.target.closest('select')) {
+        return;
+      }
+      if (state.islandState === 'idle' || state.islandState === 'peek') {
+        window.openTabDirect(state.activeTab);
+      }
+    };
+
+    window.toggleIsland = function(e) {
+      if (e) e.stopPropagation();
+      if (state.islandState === 'idle' || state.islandState === 'peek') {
+        window.openTabDirect(state.activeTab);
+      } else {
+        window.collapseIsland();
+      }
+    };
+
+    window.openTabDirect = function(tab, e) {
+      if (e) e.stopPropagation();
+      state.islandState = 'expanded';
+      window.switchTab(tab);
+      window.applyDimensions();
+    };
+
+    window.collapseIsland = function(e) {
+      if (e) e.stopPropagation();
+      state.islandState = 'idle';
+      window.applyDimensions();
+    };
+
+    document.addEventListener('click', (e) => {
+      if (!island.contains(e.target)) {
+        if (state.islandState === 'expanded' || state.islandState === 'action-chooser') {
+          window.collapseIsland();
+        }
+      }
+    });
+
+    // --------------------------------------------------------
+    // Tabs Navigation
+    // --------------------------------------------------------
+    window.switchTab = function(tab, e) {
+      if (e) e.stopPropagation();
+      state.activeTab = tab;
+      safeStorage.setItem('island_last_tab', tab);
+
+      const tabs = ['ai', 'search', 'notes', 'settings'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-content-${t}`);
+        if (content) {
+          if (t === tab) {
+            content.classList.remove('hidden');
+          } else {
+            content.classList.add('hidden');
+          }
+        }
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 bg-white text-black shadow-sm';
+          } else {
+            btn.className = 'px-2.5 py-1 radius-btn text-xs font-medium transition flex items-center space-x-1.5 text-zinc-400 hover:text-white hover:bg-white/5';
+          }
+        }
+      });
+
+      if (tab === 'ai' && promptInput) {
+        setTimeout(() => promptInput.focus(), 60);
+      } else if (tab === 'search') {
+        setTimeout(() => document.getElementById('web-search-input').focus(), 60);
+      }
+    };
+
+    // --------------------------------------------------------
+    // Mini Web Search
+    // --------------------------------------------------------
+    window.setSearchQuery = function(query) {
+      const input = document.getElementById('web-search-input');
+      input.value = query;
+      window.handleWebSearch(query);
+    };
+
+    window.handleWebSearch = function(query) {
+      const q = query.trim();
+      const resultText = document.getElementById('search-result-text');
+      if (!q) {
+        resultText.textContent = 'Type a query above to fetch instant calculations, definitions, or search results directly inside this island without opening a full browser window.';
+        return;
+      }
+
+      try {
+        if (/^[\d\s+\-*/().%^]+$/.test(q)) {
+          const evalResult = Function(`'use strict'; return (${q})`)();
+          resultText.innerHTML = `<strong>Result:</strong> ${evalResult}`;
+          return;
+        }
+      } catch (err) {}
+
+      if (q.toLowerCase().startsWith('translate')) {
+        resultText.innerHTML = `<strong>Translation:</strong> <em>"Bonjour / Hola"</em> (Quick translation ready)`;
+        return;
+      }
+
+      resultText.innerHTML = `<strong>Top result for "${escapeHtml(q)}":</strong> Quick snippet retrieved inline without launching a full browser. Press Enter to view full details.`;
+    };
+
+    // --------------------------------------------------------
+    // Continuous Notes Autosave & Ctrl+S
+    // --------------------------------------------------------
+    function initNotes() {
+      const saved = safeStorage.getItem('island_notes_list');
+      if (saved) {
+        try {
+          state.notes = JSON.parse(saved);
+        } catch (e) { state.notes = []; }
+      }
+      if (!state.notes || state.notes.length === 0) {
+        state.notes = [
+          { id: '1', title: 'Quick Notes', body: '192.168.1.104 - Ollama port 11434\nContinuous autosave is active.', date: 'Today' }
+        ];
+      }
+      state.currentNoteId = state.notes[0].id;
+      renderNotesList();
+      loadCurrentNote();
+    }
+
+    function renderNotesList() {
+      notesHistoryList.innerHTML = '';
+      state.notes.forEach(note => {
+        const item = document.createElement('div');
+        const isActive = note.id === state.currentNoteId;
+        item.className = `p-1.5 radius-btn cursor-pointer transition truncate ${isActive ? 'bg-white/10 text-white font-medium' : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'}`;
+        item.innerHTML = `<div class="truncate text-[11px]">${escapeHtml(note.title || 'Untitled')}</div>`;
+        item.onclick = () => {
+          state.currentNoteId = note.id;
+          renderNotesList();
+          loadCurrentNote();
+        };
+        notesHistoryList.appendChild(item);
+      });
+    }
+
+    function loadCurrentNote() {
+      const note = state.notes.find(n => n.id === state.currentNoteId);
+      if (note) {
+        noteTitleInput.value = note.title;
+        noteBodyInput.value = note.body;
+      }
+    }
+
+    // Continuous Autosave on EVERY Keystroke!
+    window.handleNoteTitleInput = function(val) {
+      const note = state.notes.find(n => n.id === state.currentNoteId);
+      if (note) {
+        note.title = val;
+        saveNotes();
+        renderNotesList();
+        flashAutosave();
+      }
+    };
+
+    window.handleNoteBodyInput = function(val) {
+      const note = state.notes.find(n => n.id === state.currentNoteId);
+      if (note) {
+        note.body = val;
+        // If title is default "New Note" and user types first line, adapt title!
+        if (note.title === 'New Note' || note.title === 'Untitled' || !note.title) {
+          const firstLine = val.trim().split('\n')[0].slice(0, 24);
+          if (firstLine) {
+            note.title = firstLine;
+            noteTitleInput.value = firstLine;
+          }
+        }
+        saveNotes();
+        renderNotesList();
+        flashAutosave();
+      }
+    };
+
+    function flashAutosave() {
+      if (noteAutosaveIndicator) {
+        noteAutosaveIndicator.textContent = 'Saving...';
+        noteAutosaveIndicator.className = 'text-zinc-300';
+        clearTimeout(window._saveTimer);
+        window._saveTimer = setTimeout(() => {
+          noteAutosaveIndicator.textContent = 'Autosaved';
+          noteAutosaveIndicator.className = 'text-zinc-500';
+        }, 500);
+      }
+    }
+
+    function saveNotes() {
+      safeStorage.setItem('island_notes_list', JSON.stringify(state.notes));
+    }
+
+    window.createNewNote = function(e) {
+      if (e) e.stopPropagation();
+      const newNote = {
+        id: String(Date.now()),
+        title: 'New Note',
+        body: '',
+        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      state.notes.unshift(newNote);
+      state.currentNoteId = newNote.id;
+      saveNotes();
+      renderNotesList();
+      loadCurrentNote();
+      noteTitleInput.focus();
+      showToast('Created new note');
+    };
+
+    window.createNewNoteDirect = function(e) {
+      if (e) e.stopPropagation();
+      window.openTabDirect('notes');
+      window.createNewNote();
+    };
+
+    window.exportCurrentNoteToFile = function(e) {
+      if (e) e.stopPropagation();
+      const note = state.notes.find(n => n.id === state.currentNoteId);
+      if (!note) return;
+      saveNotes();
+      const folder = document.getElementById('settings-notes-folder')?.value || '~/Documents/IslandNotes';
+      const safeTitle = (note.title || 'untitled').replace(/[^a-z0-9_-]/gi, '_');
+      showToast(`Saved to ${folder}/${safeTitle}.md`);
+    };
+
+    // Ctrl+S / Cmd+S Listener
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveNotes();
+        window.exportCurrentNoteToFile();
+      }
+    });
+
+    // --------------------------------------------------------
+    // AI Chat Engine with Braille Spinner Animation
+    // --------------------------------------------------------
+    const BRAILLE_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+    window.handleSendPrompt = async function(e) {
+      if (e) e.preventDefault();
+      const text = promptInput.value.trim();
+      if (!text || state.aiRunning) return;
+
+      appendChatMessage('user', text);
+      promptInput.value = '';
+
+      const sel = document.getElementById('settings-provider-select');
+      const modelName = sel ? sel.options[sel.selectedIndex].text : 'Local Ollama';
+      
+      // Start Braille Dots Spinner
+      const aiBubble = appendChatMessage('ai', '');
+      startBrailleSpinner(aiBubble, modelName);
+
+      if (sel && sel.value.startsWith('ollama:')) {
+        const ollamaModel = sel.value.replace('ollama:', '');
+        const host = document.getElementById('settings-endpoint-input')?.value.trim() || 'http://localhost:11434';
+        try {
+          const res = await fetch(`${host}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: ollamaModel, prompt: text, stream: false })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            stopBrailleSpinner();
+            aiBubble.innerHTML = formatMarkdown(data.response);
+            return;
+          }
+        } catch (err) {}
+      }
+
+      // Simulated Response with Braille Spinner
+      setTimeout(() => {
+        stopBrailleSpinner();
+        streamSimulatedResponse(aiBubble, text, modelName);
+      }, 700);
+    };
+
+    let spinnerInterval = null;
+    function startBrailleSpinner(container, modelName) {
+      state.aiRunning = true;
+      let frame = 0;
+      spinnerInterval = setInterval(() => {
+        frame = (frame + 1) % BRAILLE_FRAMES.length;
+        container.innerHTML = `<span class="font-mono text-zinc-400 text-xs">${BRAILLE_FRAMES[frame]}</span> <span class="text-zinc-500 text-[11px]">${escapeHtml(modelName)}</span>`;
+      }, 70);
+    }
+
+    function stopBrailleSpinner() {
+      if (spinnerInterval) clearInterval(spinnerInterval);
+      state.aiRunning = false;
+    }
+
+    function appendChatMessage(role, text) {
+      const bubble = document.createElement('div');
+      bubble.className = 'flex items-start space-x-2 text-xs';
+      if (role === 'user') {
+        bubble.innerHTML = `
+          <!-- Minimal User Avatar: Filled subtle dot -->
+          <div class="w-4 h-4 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+            <div class="w-1.5 h-1.5 rounded-full bg-zinc-400"></div>
+          </div>
+          <div class="flex-1 text-zinc-200 bg-zinc-900 p-2 radius-card border border-white/5">${escapeHtml(text)}</div>
+        `;
+      } else {
+        bubble.innerHTML = `
+          <!-- Minimal AI Avatar: Concentric circle -->
+          <div class="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center shrink-0 mt-0.5">
+            <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+          </div>
+          <div class="ai-content flex-1 text-zinc-300 bg-white/5 p-2 radius-card border border-white/5">${escapeHtml(text)}</div>
+        `;
+      }
+      chatStreamBox.appendChild(bubble);
+      chatStreamBox.scrollTop = chatStreamBox.scrollHeight;
+      return bubble.querySelector('.ai-content') || bubble;
+    }
+
+    function streamSimulatedResponse(container, query, model) {
+      const responses = [
+        `Analysis for **"${escapeHtml(query)}"**:\n- Local execution ready.\n- Note autosaved continuously.\n- Endpoints customizable in settings.`,
+        `Processed via **${escapeHtml(model)}**.\n\nQuick inline calculation or response ready.`
+      ];
+      const selected = responses[Math.floor(Math.random() * responses.length)];
+      container.innerHTML = '';
+      let idx = 0;
+      const interval = setInterval(() => {
+        idx += 3;
+        container.innerHTML = formatMarkdown(selected.slice(0, idx));
+        chatStreamBox.scrollTop = chatStreamBox.scrollHeight;
+        if (idx >= selected.length) {
+          clearInterval(interval);
+          container.innerHTML = formatMarkdown(selected);
+        }
+      }, 20);
+    }
+
+    // --------------------------------------------------------
+    // Drag & Drop
+    // --------------------------------------------------------
+    window.handleSampleDragStart = function(e, filename) {
+      state.currentDroppedFile = filename;
+      e.dataTransfer.setData('text/plain', filename);
+      state.islandState = 'drag-hover';
+      window.applyDimensions();
+    };
+
+    window.addEventListener('dragenter', (e) => {
+      if (state.islandState !== 'drag-hover' && state.islandState !== 'action-chooser') {
+        state.islandState = 'drag-hover';
+        window.applyDimensions();
+      }
+    });
+
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.handleIslandDragOver = function(e) { e.preventDefault(); };
+    window.handleIslandDragLeave = function(e) {};
+
+    window.handleIslandDrop = function(e) {
+      e.preventDefault();
+      let name = state.currentDroppedFile || 'document.pdf';
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        name = e.dataTransfer.files[0].name;
+      }
+      state.currentDroppedFile = name;
+      document.getElementById('dropped-filename').textContent = name;
+      state.islandState = 'action-chooser';
+      window.applyDimensions();
+    };
+
+    window.simulateDragAndDrop = function(e) {
+      if (e) e.stopPropagation();
+      state.currentDroppedFile = 'query.sql';
+      document.getElementById('dropped-filename').textContent = 'query.sql';
+      state.islandState = 'action-chooser';
+      window.applyDimensions();
+    };
+
+    window.cancelActionChooser = function(e) {
+      if (e) e.stopPropagation();
+      window.openTabDirect(state.activeTab);
+    };
+
+    window.executeFileAction = function(action, e) {
+      if (e) e.stopPropagation();
+      const filename = state.currentDroppedFile || 'document.pdf';
+
+      if (action === 'ai') {
+        window.openTabDirect('ai');
+        promptInput.value = `Explain and audit "${filename}"`;
+        handleSendPrompt(new Event('submit'));
+        showToast(`Sent "${filename}" to AI`);
+      } else if (action === 'notes') {
+        window.openTabDirect('notes');
+        const note = state.notes.find(n => n.id === state.currentNoteId);
+        if (note) {
+          note.body += `\n- [Attached File]: ${filename}`;
+          saveNotes();
+          loadCurrentNote();
+        }
+        showToast(`Attached "${filename}" to notes`);
+      } else if (action === 'folder') {
+        window.collapseIsland();
+        showToast(`Copied "${filename}" to project folder`);
+      } else if (action === 'share') {
+        window.collapseIsland();
+        showToast(`Quick Share opened for "${filename}"`);
+      }
+      state.currentDroppedFile = null;
+    };
+
+    // --------------------------------------------------------
+    // Settings & Configuration Persistence
+    // --------------------------------------------------------
+    window.onSettingsProviderChange = function(e) {
+      const sel = document.getElementById('settings-provider-select');
+      const text = sel.options[sel.selectedIndex].text;
+      document.getElementById('active-model-display').textContent = text;
+      saveSettings();
+      showToast(`Model set: ${text}`);
+    };
+
+    window.saveSettings = function() {
+      const settings = {
+        provider: document.getElementById('settings-provider-select')?.value,
+        endpoint: document.getElementById('settings-endpoint-input')?.value,
+        searchProvider: document.getElementById('settings-search-provider')?.value,
+        notesFolder: document.getElementById('settings-notes-folder')?.value
+      };
+      safeStorage.setItem('island_settings', JSON.stringify(settings));
+    };
+
+    function loadSettings() {
+      const saved = safeStorage.getItem('island_settings');
+      if (saved) {
+        try {
+          const s = JSON.parse(saved);
+          if (s.provider && document.getElementById('settings-provider-select')) {
+            document.getElementById('settings-provider-select').value = s.provider;
+            const sel = document.getElementById('settings-provider-select');
+            document.getElementById('active-model-display').textContent = sel.options[sel.selectedIndex].text;
+          }
+          if (s.endpoint && document.getElementById('settings-endpoint-input')) {
+            document.getElementById('settings-endpoint-input').value = s.endpoint;
+          }
+          if (s.searchProvider && document.getElementById('settings-search-provider')) {
+            document.getElementById('settings-search-provider').value = s.searchProvider;
+          }
+          if (s.notesFolder && document.getElementById('settings-notes-folder')) {
+            document.getElementById('settings-notes-folder').value = s.notesFolder;
+          }
+        } catch (e) {}
+      }
+    }
+
+    window.setOSMode = function(mode, e) {
+      if (e) e.stopPropagation();
+      state.osMode = mode;
+      safeStorage.setItem('island_os_mode', mode);
+
+      const winButtons = [document.getElementById('quick-toggle-win'), document.getElementById('modal-mode-win')];
+      const macButtons = [document.getElementById('quick-toggle-mac'), document.getElementById('modal-mode-mac')];
+
+      if (mode === 'mac') {
+        macButtons.forEach(b => {
+          if (b) b.className = 'px-2 py-0.5 radius-btn text-xs font-medium bg-white text-black transition';
+        });
+        winButtons.forEach(b => {
+          if (b) b.className = 'px-2 py-0.5 radius-btn text-xs font-medium text-zinc-400 hover:text-white bg-white/5 transition';
+        });
+        showToast('MacBook Notch Mode');
+      } else {
+        winButtons.forEach(b => {
+          if (b) b.className = 'px-2 py-0.5 radius-btn text-xs font-medium bg-white text-black transition';
+        });
+        macButtons.forEach(b => {
+          if (b) b.className = 'px-2 py-0.5 radius-btn text-xs font-medium text-zinc-400 hover:text-white bg-white/5 transition';
+        });
+        showToast('Windows 11 Pill Mode');
+      }
+      window.applyDimensions();
+    };
+
+    function showToast(msg) {
+      if (toast && toastMsg) {
+        toastMsg.textContent = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 2200);
+      }
+    }
+
+    function formatMarkdown(text) {
+      return text
+        .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1 py-0.5 rounded text-zinc-200 font-mono text-[11px]">$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+        .replace(/\n/g, '<br/>');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.altKey && e.code === 'Space') || (e.ctrlKey && e.code === 'Space')) {
+        e.preventDefault();
+        window.toggleIsland();
+      } else if (e.code === 'Escape' && state.islandState !== 'idle') {
+        window.collapseIsland();
+      }
+    });
+
+    initNotes();
+    loadSettings();
+    window.setOSMode(state.osMode);
+  </script>
+</body>
+</html>
